@@ -6,7 +6,10 @@ import pandas as pd
 import base64,random
 import time,datetime
 from PIL import Image
+from pathlib import Path
 import streamlit as st
+import streamlit.components.v1 as components
+from window_create import website
 import plotly.express as px
 from streamlit_tags import st_tags
 from pyresparser import ResumeParser
@@ -104,14 +107,30 @@ def insert_data(name,email,res_score,timestamp,no_of_pages,reco_field,cand_level
 
 st.set_page_config(
    page_title="Resume Screening",
-)
+   layout="wide",
    
+)
+def img_to_bytes(img_path):
+    img_bytes = Path(img_path).read_bytes()
+    encoded = base64.b64encode(img_bytes).decode()
+    return encoded
+
+header_html = "<img src='data:image/jpg;base64,{}' class='img-fluid'>".format(img_to_bytes("about.jpg"))
 
 def run():
+    website()
+    hide_streamlit_style = """
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    </style>
+    """
     st.title("Resume Screening")
+    st.markdown(hide_streamlit_style, unsafe_allow_html=True) 
     st.sidebar.markdown("# Choose User")
     activities = ["Normal User", "Admin"]
     choice = st.sidebar.selectbox("Choose among the given options:", activities)
+   
 
     data_base_creator()
    
