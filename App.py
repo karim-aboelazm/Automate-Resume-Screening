@@ -12,16 +12,22 @@ import streamlit.components.v1 as components
 from window_create import website
 import plotly.express as px
 from streamlit_tags import st_tags
+import os
+import tensorflow as tf
+import numpy as np
+from tensorflow import keras
 from pyresparser import ResumeParser
 from pdfminer3.layout import LAParams
+import spacy
 from pdfminer3.pdfpage import PDFPage
 from pdfminer3.pdfinterp import PDFResourceManager
 from pdfminer3.pdfinterp import PDFPageInterpreter
 from pdfminer3.converter import TextConverter
 from Courses import *
 
+# resume_score = keras.models.load_model('model.pkl',compile=False)
 # nltk.download('stopwords')
-
+# spacy.load('en_core_web_sm')
 def fetch_yt_video(link):
     video = pafy.new(link)
     return video.title
@@ -117,6 +123,59 @@ def img_to_bytes(img_path):
 
 header_html = "<img src='data:image/jpg;base64,{}' class='img-fluid'>".format(img_to_bytes("about.jpg"))
 
+
+
+
+# Machine Learning Part Training And Test Result
+# ===============================================================================================================
+# Import Libraries 
+import fitz
+import numpy as np
+import pandas as pd
+# SKLEARN Imports...
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.linear_model import SGDClassifier
+# ===============================================================================================================
+def train_test_sgd_classifier():
+    # Train and test algorithm
+    df = pd.read_csv('job_desc_csv_fixed_url.csv')
+    X_train, X_test, y_train, y_test = train_test_split(df.job_descriptions, df.search_term, random_state=0)
+
+    count_vect = CountVectorizer(stop_words='english')
+    X_train_counts = count_vect.fit_transform(X_train)
+
+    tfidf_transformer = TfidfTransformer()
+    X_train_tfidf = tfidf_transformer.fit_transform(X_train_counts)
+
+    clf = SGDClassifier(loss='hinge', penalty='l1', alpha=1e-3, random_state=42, max_iter=5, tol=None)
+    clf.fit(X_train_tfidf, y_train)
+
+    preds = clf.predict(count_vect.transform(X_test))
+    accuracy = np.mean(preds==np.array(y_test))
+
+    return clf, count_vect, accuracy
+
+def Convert_Pdf_To_Text(pdf_url):
+    with fitz.open(pdf_url) as doc:
+        text = ""
+        for page in doc:
+            text += page.get_text()
+    return text
+
+def predict_resume(resume_text):
+    # Run predict on trained algorithm
+    text_as_series = pd.Series(resume_text)
+    clf, count_vect, _ = train_test_sgd_classifier()
+    prediction = clf.predict(count_vect.transform(text_as_series))
+    return prediction[0]
+
+# =======================================================================================================================
+
+
+
+
+
 def run():
     website()
     hide_streamlit_style = """
@@ -186,69 +245,77 @@ def run():
                 recommended_skills = []
                 reco_field = ''
                 rec_course = ''
+                cv = Convert_Pdf_To_Text(save_image_path)
+                
+                st.success(f"** Our analysis says you are looking for {predict_resume(cv)} Jobs.")
+                recommended_skills = ['Data Visualization','Predictive Analysis','Statistical Modeling','Data Mining','Clustering & Classification','Data Analytics','Quantitative Analysis','Web Scraping','ML Algorithms','Keras','Pytorch','Probability','Scikit-learn','Tensorflow',"Flask",'Streamlit']
+                recommended_keywords = st_tags(label='Recommended skills for you.',
+                text='Recommended skills generated from System',value=recommended_skills,key = '2')
+                st.markdown('''<h4 style='text-align: left; color: #1ed760;'>Adding this skills to resume will boost🚀 the chances of getting a Job💼</h4>''',unsafe_allow_html=True)
+                rec_course = course_recommender(ds_course)
                 ## Courses recommendation
-                for i in resume_data['skills']:
-                    ## Data science recommendation
-                    if i.lower() in ds_keyword:
-                        # print(i.lower())
-                        reco_field = 'Data Science'
-                        st.success("** Our analysis says you are looking for Data Science Jobs.")
-                        recommended_skills = ['Data Visualization','Predictive Analysis','Statistical Modeling','Data Mining','Clustering & Classification','Data Analytics','Quantitative Analysis','Web Scraping','ML Algorithms','Keras','Pytorch','Probability','Scikit-learn','Tensorflow',"Flask",'Streamlit']
-                        recommended_keywords = st_tags(label='Recommended skills for you.',
-                        text='Recommended skills generated from System',value=recommended_skills,key = '2')
-                        st.markdown('''<h4 style='text-align: left; color: #1ed760;'>Adding this skills to resume will boost🚀 the chances of getting a Job💼</h4>''',unsafe_allow_html=True)
-                        rec_course = course_recommender(ds_course)
-                        break
+                # for i in resume_data['skills']:
+                #     ## Data science recommendation
+                #     if i.lower() in ds_keyword:
+                #         # print(i.lower())
+                       
+                #         st.success("** Our analysis says you are looking for Data Science Jobs.")
+                #         recommended_skills = ['Data Visualization','Predictive Analysis','Statistical Modeling','Data Mining','Clustering & Classification','Data Analytics','Quantitative Analysis','Web Scraping','ML Algorithms','Keras','Pytorch','Probability','Scikit-learn','Tensorflow',"Flask",'Streamlit']
+                #         recommended_keywords = st_tags(label='Recommended skills for you.',
+                #         text='Recommended skills generated from System',value=recommended_skills,key = '2')
+                #         st.markdown('''<h4 style='text-align: left; color: #1ed760;'>Adding this skills to resume will boost🚀 the chances of getting a Job💼</h4>''',unsafe_allow_html=True)
+                #         rec_course = course_recommender(ds_course)
+                #         break
 
-                    ## Web development recommendation
-                    elif i.lower() in web_keyword:
-                        # print(i.lower())
-                        reco_field = 'Web Development'
-                        st.success("** Our analysis says you are looking for Web Development Jobs.")
-                        recommended_skills = ['React','Django','Node JS','React JS','php','laravel','Magento','wordpress','Javascript','Angular JS','c#','Flask','SDK']
-                        recommended_keywords = st_tags(label='Recommended skills for you.',
-                        text='Recommended skills generated from System',value=recommended_skills,key = '3')
-                        st.markdown('''<h4 style='text-align: left; color: #1ed760;'>Adding this skills to resume will boost🚀 the chances of getting a Job💼</h4>''',unsafe_allow_html=True)
-                        rec_course = course_recommender(web_course)
-                        break
+                #     ## Web development recommendation
+                #     elif i.lower() in web_keyword:
+                #         # print(i.lower())
+                #         reco_field = 'Web Development'
+                #         st.success("** Our analysis says you are looking for Web Development Jobs.")
+                #         recommended_skills = ['React','Django','Node JS','React JS','php','laravel','Magento','wordpress','Javascript','Angular JS','c#','Flask','SDK']
+                #         recommended_keywords = st_tags(label='Recommended skills for you.',
+                #         text='Recommended skills generated from System',value=recommended_skills,key = '3')
+                #         st.markdown('''<h4 style='text-align: left; color: #1ed760;'>Adding this skills to resume will boost🚀 the chances of getting a Job💼</h4>''',unsafe_allow_html=True)
+                #         rec_course = course_recommender(web_course)
+                #         break
 
-                    ## Android App Development
-                    elif i.lower() in android_keyword:
-                        print(i.lower())
-                        reco_field = 'Android Development'
-                        st.success("Our analysis says you are looking for Android App Development Jobs")
-                        recommended_skills = ['Android','Android development','Flutter','Kotlin','XML','Java','Kivy','GIT','SDK','SQLite']
-                        recommended_keywords = st_tags(label='Recommended skills for you.',
-                        text='Recommended skills generated from System',value=recommended_skills,key = '4')
-                        st.markdown('''<h4 style='text-align: left; color: #1ed760;'>Adding this skills to resume will boost🚀 the chances of getting a Job💼</h4>''',unsafe_allow_html=True)
-                        rec_course = course_recommender(android_course)
-                        break
+                #     ## Android App Development
+                #     elif i.lower() in android_keyword:
+                #         print(i.lower())
+                #         reco_field = 'Android Development'
+                #         st.success("Our analysis says you are looking for Android App Development Jobs")
+                #         recommended_skills = ['Android','Android development','Flutter','Kotlin','XML','Java','Kivy','GIT','SDK','SQLite']
+                #         recommended_keywords = st_tags(label='Recommended skills for you.',
+                #         text='Recommended skills generated from System',value=recommended_skills,key = '4')
+                #         st.markdown('''<h4 style='text-align: left; color: #1ed760;'>Adding this skills to resume will boost🚀 the chances of getting a Job💼</h4>''',unsafe_allow_html=True)
+                #         rec_course = course_recommender(android_course)
+                #         break
 
-                    ## IOS App Development
-                    elif i.lower() in ios_keyword:
-                        print(i.lower())
-                        reco_field = 'IOS Development'
-                        st.success("** Our analysis says you are looking for IOS App Development Jobs")
-                        recommended_skills = ['IOS','IOS Development','Swift','Cocoa','Cocoa Touch','Xcode','Objective-C','SQLite','Plist','StoreKit',"UI-Kit",'AV Foundation','Auto-Layout']
-                        recommended_keywords = st_tags(label='Recommended skills for you.',
-                        text='Recommended skills generated from System',value=recommended_skills,key = '5')
-                        st.markdown('''<h4 style='text-align: left; color: #1ed760;'>Adding this skills to resume will boost🚀 the chances of getting a Job💼</h4>''',unsafe_allow_html=True)
-                        rec_course = course_recommender(ios_course)
-                        break
+                #     ## IOS App Development
+                #     elif i.lower() in ios_keyword:
+                #         print(i.lower())
+                #         reco_field = 'IOS Development'
+                #         st.success("** Our analysis says you are looking for IOS App Development Jobs")
+                #         recommended_skills = ['IOS','IOS Development','Swift','Cocoa','Cocoa Touch','Xcode','Objective-C','SQLite','Plist','StoreKit',"UI-Kit",'AV Foundation','Auto-Layout']
+                #         recommended_keywords = st_tags(label='Recommended skills for you.',
+                #         text='Recommended skills generated from System',value=recommended_skills,key = '5')
+                #         st.markdown('''<h4 style='text-align: left; color: #1ed760;'>Adding this skills to resume will boost🚀 the chances of getting a Job💼</h4>''',unsafe_allow_html=True)
+                #         rec_course = course_recommender(ios_course)
+                #         break
 
-                    ## Ui-UX Recommendation
-                    elif i.lower() in uiux_keyword:
-                        print(i.lower())
-                        reco_field = 'UI-UX Development'
-                        st.success("Our analysis says you are looking for UI-UX Development Jobs.")
-                        recommended_skills = ['UI','User Experience','Adobe XD','Figma','Zeplin','Balsamiq','Prototyping','Wireframes','Storyframes','Adobe Photoshop','Editing','Illustrator','After Effects','Premier Pro','Indesign','Wireframe','Solid','Grasp','User Research']
-                        recommended_keywords = st_tags(label='Recommended skills for you.',
-                        text='Recommended skills generated from System',value=recommended_skills,key = '6')
-                        st.markdown('''<h4 style='text-align: left; color: #1ed760;'>Adding this skills to resume will boost🚀 the chances of getting a Job💼</h4>''',unsafe_allow_html=True)
-                        rec_course = course_recommender(uiux_course)
-                        break
+                #     ## Ui-UX Recommendation
+                #     elif i.lower() in uiux_keyword:
+                #         print(i.lower())
+                #         reco_field = 'UI-UX Development'
+                #         st.success("Our analysis says you are looking for UI-UX Development Jobs.")
+                #         recommended_skills = ['UI','User Experience','Adobe XD','Figma','Zeplin','Balsamiq','Prototyping','Wireframes','Storyframes','Adobe Photoshop','Editing','Illustrator','After Effects','Premier Pro','Indesign','Wireframe','Solid','Grasp','User Research']
+                #         recommended_keywords = st_tags(label='Recommended skills for you.',
+                #         text='Recommended skills generated from System',value=recommended_skills,key = '6')
+                #         st.markdown('''<h4 style='text-align: left; color: #1ed760;'>Adding this skills to resume will boost🚀 the chances of getting a Job💼</h4>''',unsafe_allow_html=True)
+                #         rec_course = course_recommender(uiux_course)
+                #         break
 
-                #
+                # #
                 ## Insert into table
                 ts = time.time()
                 cur_date = datetime.datetime.fromtimestamp(ts).strftime('%Y-%m-%d')
